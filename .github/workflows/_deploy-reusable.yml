@@ -1,0 +1,61 @@
+name: _deploy-reusable
+
+# Packages the Lambda zip and pushes it with
+# `aws lambda update-function-code`. Terraform (medsense-infra) owns
+# the function/role/API Gateway themselves; this workflow only ever
+# updates code, matching the `ignore_changes` in the lambda_backend
+# module so the two don't fight each other.
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+    secrets:
+      AWS_DEPLOY_ROLE_ARN:
+        required: true
+      LAMBDA_FUNCTION_NAME:
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: "ap-southeast-2"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build deployment package
+        run: |
+          mkdir -p build
+          pip install -r requirements.txt --target build --no-cache-dir
+          cp -r app build/
+          cd build && zip -r ../function.zip . -x "*.pyc" -x "__pycache__/*"
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy to Lambda (${{ inputs.environment }})
+        run: |
+          aws lambda update-function-code \
+            --function-name "${{ secrets.LAMBDA_FUNCTION_NAME }}" \
+            --zip-file fileb://function.zip \
+            --publish
+
+      - name: Wait for update to finish
+        run: |
+          aws lambda wait function-updated \
+            --function-name "${{ secrets.LAMBDA_FUNCTION_NAME }}"
