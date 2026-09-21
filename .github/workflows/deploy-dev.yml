@@ -14,6 +14,4 @@ jobs:
     uses: ./.github/workflows/_deploy-reusable.yml
     with:
       environment: dev
-    secrets:
-      AWS_DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-      LAMBDA_FUNCTION_NAME: ${{ secrets.LAMBDA_FUNCTION_NAME }}
+    secrets: inherit
