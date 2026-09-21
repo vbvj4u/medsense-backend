@@ -7,6 +7,10 @@ name: Deploy - staging
 on:
   workflow_dispatch: {}
 
+permissions:
+  id-token: write
+  contents: read
+  
 jobs:
   deploy:
     uses: ./.github/workflows/_deploy-reusable.yml
